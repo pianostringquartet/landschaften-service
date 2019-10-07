@@ -2,3 +2,4 @@
 *.iml
 .stack-work/
 landschaften-service.cabal
+.DS_Store

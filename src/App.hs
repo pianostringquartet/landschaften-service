@@ -93,6 +93,7 @@ initConnectionPool connStr =
     60 -- unused connxns kept open for 60 seconds
     10 -- max conns per strip
 
+
 runMyQuery = do
   dbUrl <- getEnv "DB_URL"
   _ <- print $ "dburl is: " ++ dbUrl
@@ -106,3 +107,4 @@ runMyQuery = do
   _ <- print (prConcepts (head res)) -- just the raw json :)
   _ <- print (parseEither parseConcepts (fromJust $ decodeStrict $ fromString (prConcepts (head res))))
   putStrLn "Done."
+
