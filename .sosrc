@@ -1,0 +1,7 @@
+- patterns:
+  - .*\.hs$
+  - ^my-thing.cabal$
+  - ^stack.yaml$
+  commands:
+  - stack build
+  - stack exec landschaften-service-exe

@@ -1,0 +1,4 @@
+*.idea
+*.iml
+.stack-work/
+landschaften-service.cabal
