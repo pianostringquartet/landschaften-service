@@ -1,1 +1,1 @@
-web: landschaften-service
+web: landschaften-service-exec
