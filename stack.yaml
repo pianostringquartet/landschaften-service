@@ -20,7 +20,11 @@
 resolver: lts-14.7
 
 ## Adding, to receive env vars by not using Nix:
-# pure: false
+#nix:
+#  enable: true
+#  pure: false
+
+
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.

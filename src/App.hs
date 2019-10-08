@@ -73,9 +73,12 @@ server conns = getArtists :<|> getConcepts :<|> getPaintings :<|> queryPaintings
         uncurry (query conn) (BQ.buildQuery $ BQ.constraints constraintsInfo) :: IO [PaintingRow]
 
 --        query_ conn "select distinct author, title, wga_jpg, type, school, timeframe, concepts from paintings" :: IO [PaintingRow]
-runApp :: Pool Connection -> IO ()
-runApp conns = do
-  let port = 8080
+--runApp :: Pool Connection -> IO ()
+runApp :: Int -> Pool Connection -> IO ()
+--runApp conns = do
+runApp portNumber conns = do
+--  let port = 8080
+  let port = portNumber
       settings =
         setPort port $
         setBeforeMainLoop (hPutStrLn stderr ("listening on the following port " ++ show port)) $ defaultSettings
@@ -93,11 +96,13 @@ initConnectionPool connStr =
     60 -- unused connxns kept open for 60 seconds
     10 -- max conns per strip
 
+x = getEnv "DB_URL"
 
 runMyQuery = do
   dbUrl <- getEnv "DB_URL"
+  portNumber <- getEnv "PORT"
   _ <- print $ "dburl is: " ++ dbUrl
-
+  _ <- print $ "portNumber is: " ++ portNumber
   myPool <- initConnectionPool (fromString dbUrl)
   res <-
     withResource myPool $ \conn ->
