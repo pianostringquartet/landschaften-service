@@ -31,17 +31,19 @@ library
     , servant
     , servant-client
     , servant-server
+    , servant-options
+
     , text >= 1.2
     , transformers
     , utf8-string
     , wai
+    , wai-cors
     , warp
 
   default-language:    Haskell2010
 
 executable landschaften-service
   hs-source-dirs:      app
---  main-is:             app/Main.hs
   main-is:             Main.hs
   other-modules:
     Paths_landschaften_service
@@ -54,8 +56,10 @@ executable landschaften-service
                         , servant
                         , servant-client
                         , servant-server
+                        , servant-options
                         , transformers
                         , wai
+                        , wai-cors
                         , warp
                         , bytestring >= 0.10
                         , text >= 1.2

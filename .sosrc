@@ -4,4 +4,4 @@
   - ^stack.yaml$
   commands:
   - stack build
-  - stack exec landschaften-service-exe
+  - stack exec landschaften-service
