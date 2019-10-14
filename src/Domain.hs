@@ -24,6 +24,8 @@ import           Data.Aeson.Types                     (Parser (..), parse,
 import           Data.ByteString.UTF8                 (fromString)
 
 
+-- separate endpoint-return concepts from core business domain concepts
+
 -- for the /concepts endpoint, to list all concepts 
 newtype ConceptNamesResponse = ConceptNamesResponse {
   conceptNames :: [String]
@@ -68,6 +70,7 @@ data Painting =
   Painting
     { author    :: String -- make a custom type?
     , title     :: String
+    , date :: String
     , jpg       :: String -- WGA_JPEG, not the Cloudinary jpeg
     , genre     :: Genre -- aka "type" in the db tables
     , school    :: School
@@ -97,6 +100,7 @@ data PaintingRow =
   PaintingRow
     { prAuthor    :: String
     , prTitle     :: String
+    , prDate :: String
     , prJpg       :: String
     , prGenre     :: Genre
     , prSchool    :: School
@@ -108,7 +112,7 @@ data PaintingRow =
 -- the ConceptRow field itself is not complicated
 -- and FromRow for ConceptRow "just worked"
 instance FromRow PaintingRow where
-  fromRow = PaintingRow <$> field <*> field <*> field <*> field <*> field <*> field <*> field
+  fromRow = PaintingRow <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
 data Concept =
   Concept
@@ -139,6 +143,7 @@ paintingRowToPainting pr =
   Painting
     (prAuthor pr)
     (prTitle pr)
+    (prDate pr)
     (prJpg pr)
     (prGenre pr)
     (prSchool pr)
@@ -212,7 +217,7 @@ instance ToField Genre where
       GenreGenre   -> toField ("genre" :: String)
       Religious    -> toField ("religious" :: String)
       OtherGenre   -> toField ("other" :: String)
-      StillLife    -> toField ("still-ife" :: String)
+      StillLife    -> toField ("still-life" :: String)
       Historical   -> toField ("historical" :: String)
       Portrait     -> toField ("portrait" :: String)
 
@@ -249,60 +254,60 @@ data School
 instance ToJSON School where
   toJSON a =
     case a of
-      German        -> "german"
-      Italian       -> "italian"
-      Danish        -> "danish"
-      Flemish       -> "flemish"
-      Dutch         -> "dutch"
-      Netherlandish -> "netherlandish"
-      Swiss         -> "swiss"
-      Other         -> "other"
-      Russian       -> "russian"
-      English       -> "english"
-      Austrian      -> "austrian"
-      Scottish      -> "scottish"
-      Bohemian      -> "bohemian"
-      French        -> "french"
-      Spanish       -> "spanish"
-      Belgian       -> "belgian"
-      Hungarian     -> "hungarian"
-      American      -> "american"
-      Polish        -> "polish"
-      Norwegian     -> "norwegian"
-      Swedish       -> "swedish"
-      Irish         -> "irish"
-      Finnish       -> "finnish"
-      Portuguese    -> "portuguese"
-      Greek         -> "greek"
-      Catalan       -> "catalan"
+      German        -> "German"
+      Italian       -> "Italian"
+      Danish        -> "Danish"
+      Flemish       -> "Flemish"
+      Dutch         -> "Dutch"
+      Netherlandish -> "Netherlandish"
+      Swiss         -> "Swiss"
+      Other         -> "Other"
+      Russian       -> "Russian"
+      English       -> "English"
+      Austrian      -> "Austrian"
+      Scottish      -> "Scottish"
+      Bohemian      -> "Bohemian"
+      French        -> "French"
+      Spanish       -> "Spanish"
+      Belgian       -> "Belgian"
+      Hungarian     -> "Hungarian"
+      American      -> "American"
+      Polish        -> "Polish"
+      Norwegian     -> "Norwegian"
+      Swedish       -> "Swedish"
+      Irish         -> "Irish"
+      Finnish       -> "Finnish"
+      Portuguese    -> "Portuguese"
+      Greek         -> "Greek"
+      Catalan       -> "Catalan"
 
 instance FromJSON School where
-  parseJSON (String "german")        = return German
-  parseJSON (String "italian")       = return Italian
-  parseJSON (String "danish")        = return Danish
-  parseJSON (String "flemish")       = return Flemish
-  parseJSON (String "dutch")         = return Dutch
-  parseJSON (String "netherlandish") = return Netherlandish
-  parseJSON (String "swiss")         = return Swiss
-  parseJSON (String "other")         = return Other
-  parseJSON (String "russian")       = return Russian
-  parseJSON (String "english")       = return English
-  parseJSON (String "austrian")      = return Austrian
-  parseJSON (String "scottish")      = return Scottish
-  parseJSON (String "bohemian")      = return Bohemian
-  parseJSON (String "french")        = return French
-  parseJSON (String "spanish")       = return Spanish
-  parseJSON (String "belgian")       = return Belgian
-  parseJSON (String "hungarian")     = return Hungarian
-  parseJSON (String "american")      = return American
-  parseJSON (String "polish")        = return Polish
-  parseJSON (String "norwegian")     = return Norwegian
-  parseJSON (String "swedish")       = return Swedish
-  parseJSON (String "irish")         = return Irish
-  parseJSON (String "finnish")       = return Finnish
-  parseJSON (String "portuguese")    = return Portuguese
-  parseJSON (String "greek")         = return Greek
-  parseJSON (String "catalan")       = return Catalan
+  parseJSON (String "German")        = return German
+  parseJSON (String "Italian")       = return Italian
+  parseJSON (String "Danish")        = return Danish
+  parseJSON (String "Flemish")       = return Flemish
+  parseJSON (String "Dutch")         = return Dutch
+  parseJSON (String "Netherlandish") = return Netherlandish
+  parseJSON (String "Swiss")         = return Swiss
+  parseJSON (String "Other")         = return Other
+  parseJSON (String "Russian")       = return Russian
+  parseJSON (String "English")       = return English
+  parseJSON (String "Austrian")      = return Austrian
+  parseJSON (String "Scottish")      = return Scottish
+  parseJSON (String "Bohemian")      = return Bohemian
+  parseJSON (String "French")        = return French
+  parseJSON (String "Spanish")       = return Spanish
+  parseJSON (String "Belgian")       = return Belgian
+  parseJSON (String "Hungarian")     = return Hungarian
+  parseJSON (String "American")      = return American
+  parseJSON (String "Polish")        = return Polish
+  parseJSON (String "Norwegian")     = return Norwegian
+  parseJSON (String "Swedish")       = return Swedish
+  parseJSON (String "Irish")         = return Irish
+  parseJSON (String "Finnish")       = return Finnish
+  parseJSON (String "Portuguese")    = return Portuguese
+  parseJSON (String "Greek")         = return Greek
+  parseJSON (String "Catalan")       = return Catalan
   parseJSON _                        = error "Did not recognize the School"
 
 instance FromField School where
@@ -310,61 +315,62 @@ instance FromField School where
     where
       school =
         case mdata of
-          Just "german"        -> German
-          Just "italian"       -> Italian
-          Just "danish"        -> Danish
-          Just "flemish"       -> Flemish
-          Just "dutch"         -> Dutch
-          Just "netherlandish" -> Netherlandish
-          Just "swiss"         -> Swiss
-          Just "other"         -> Other
-          Just "russian"       -> Russian
-          Just "english"       -> English
-          Just "austrian"      -> Austrian
-          Just "scottish"      -> Scottish
-          Just "bohemian"      -> Bohemian
-          Just "french"        -> French
-          Just "spanish"       -> Spanish
-          Just "belgian"       -> Belgian
-          Just "hungarian"     -> Hungarian
-          Just "american"      -> American
-          Just "polish"        -> Polish
-          Just "norwegian"     -> Norwegian
-          Just "swedish"       -> Swedish
-          Just "irish"         -> Irish
-          Just "finnish"       -> Finnish
-          Just "portuguese"    -> Portuguese
-          Just "greek"         -> Greek
-          Just "catalan"       -> Catalan
+          Just "German"        -> German
+          Just "Italian"       -> Italian
+          Just "Danish"        -> Danish
+          Just "Flemish"       -> Flemish
+          Just "Dutch"         -> Dutch
+          Just "Netherlandish" -> Netherlandish
+          Just "Swiss"         -> Swiss
+          Just "Other"         -> Other
+          Just "Russian"       -> Russian
+          Just "English"       -> English
+          Just "Austrian"      -> Austrian
+          Just "Scottish"      -> Scottish
+          Just "Bohemian"      -> Bohemian
+          Just "French"        -> French
+          Just "Spanish"       -> Spanish
+          Just "Belgian"       -> Belgian
+          Just "Hungarian"     -> Hungarian
+          Just "American"      -> American
+          Just "Polish"        -> Polish
+          Just "Norwegian"     -> Norwegian
+          Just "Swedish"       -> Swedish
+          Just "Irish"         -> Irish
+          Just "Finnish"       -> Finnish
+          Just "Portuguese"    -> Portuguese
+          Just "Greek"         -> Greek
+          Just "Catalan"       -> Catalan
           _                    -> Other
+
 
 instance ToField School where
   toField mdata =
     case mdata of
-      German        -> toField ("german" :: String)
-      Italian       -> toField ("italian" :: String)
-      Danish        -> toField ("danish" :: String)
-      Flemish       -> toField ("flemish" :: String)
-      Dutch         -> toField ("dutch" :: String)
-      Netherlandish -> toField ("netherlandish" :: String)
-      Swiss         -> toField ("swiss" :: String)
-      Other         -> toField ("other" :: String)
-      Russian       -> toField ("russian" :: String)
-      English       -> toField ("english" :: String)
-      Austrian      -> toField ("austrian" :: String)
-      Scottish      -> toField ("scottish" :: String)
-      Bohemian      -> toField ("bohemian" :: String)
-      French        -> toField ("french" :: String)
-      Spanish       -> toField ("spanish" :: String)
-      Belgian       -> toField ("belgian" :: String)
-      Hungarian     -> toField ("hungarian" :: String)
-      American      -> toField ("american" :: String)
-      Polish        -> toField ("polish" :: String)
-      Norwegian     -> toField ("norwegian" :: String)
-      Swedish       -> toField ("swedish" :: String)
-      Irish         -> toField ("irish" :: String)
-      Finnish       -> toField ("finnish" :: String)
-      Portuguese    -> toField ("portuguese" :: String)
-      Greek         -> toField ("greek" :: String)
-      Catalan       -> toField ("catalan" :: String)
-      _             -> toField ("other" :: String)
+      German        -> toField ("German" :: String)
+      Italian       -> toField ("Italian" :: String)
+      Danish        -> toField ("Danish" :: String)
+      Flemish       -> toField ("Flemish" :: String)
+      Dutch         -> toField ("Dutch" :: String)
+      Netherlandish -> toField ("Netherlandish" :: String)
+      Swiss         -> toField ("Swiss" :: String)
+      Other         -> toField ("Other" :: String)
+      Russian       -> toField ("Russian" :: String)
+      English       -> toField ("English" :: String)
+      Austrian      -> toField ("Austrian" :: String)
+      Scottish      -> toField ("Scottish" :: String)
+      Bohemian      -> toField ("Bohemian" :: String)
+      French        -> toField ("French" :: String)
+      Spanish       -> toField ("Spanish" :: String)
+      Belgian       -> toField ("Belgian" :: String)
+      Hungarian     -> toField ("Hungarian" :: String)
+      American      -> toField ("American" :: String)
+      Polish        -> toField ("Polish" :: String)
+      Norwegian     -> toField ("Norwegian" :: String)
+      Swedish       -> toField ("Swedish" :: String)
+      Irish         -> toField ("Irish" :: String)
+      Finnish       -> toField ("Finnish" :: String)
+      Portuguese    -> toField ("Portuguese" :: String)
+      Greek         -> toField ("Greek" :: String)
+      Catalan       -> toField ("Catalan" :: String)
+      _             -> toField ("Other" :: String)
