@@ -109,8 +109,6 @@ data PaintingRow =
     }
   deriving (Eq, Show, Read, Generic, Typeable)
 
--- the ConceptRow field itself is not complicated
--- and FromRow for ConceptRow "just worked"
 instance FromRow PaintingRow where
   fromRow = PaintingRow <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
@@ -150,6 +148,11 @@ paintingRowToPainting pr =
     (prTimeframe pr)
     (optimisticDecodeConcepts (prConcepts pr))
 
+
+-- alternatively: use newtype, if don't need type safety
+-- would be especially good for Author and Concept
+newtype GenreWrapper = GenreWrapper String 
+
 data Genre
   = Mythological
   | Interior
@@ -162,6 +165,15 @@ data Genre
   | Historical
   | Portrait
   deriving (Eq, Show, Read, Generic)
+
+-- Aeson provides a deriving-helper function
+-- https://artyom.me/aeson#records-and-json
+-- Generics: customising field names
+-- e.g.
+--instance ToJSON Person where
+--  toJSON = genericToJSON defaultOptions {
+--             fieldLabelModifier = <your modifier fn here> }
+
 
 instance ToJSON Genre where
   toJSON a =
@@ -250,65 +262,67 @@ data School
   | Catalan
   deriving (Eq, Show, Read, Generic)
 
--- Otherwise endpoint returns e.g. "German" instead of "german"
-instance ToJSON School where
-  toJSON a =
-    case a of
-      German        -> "German"
-      Italian       -> "Italian"
-      Danish        -> "Danish"
-      Flemish       -> "Flemish"
-      Dutch         -> "Dutch"
-      Netherlandish -> "Netherlandish"
-      Swiss         -> "Swiss"
-      Other         -> "Other"
-      Russian       -> "Russian"
-      English       -> "English"
-      Austrian      -> "Austrian"
-      Scottish      -> "Scottish"
-      Bohemian      -> "Bohemian"
-      French        -> "French"
-      Spanish       -> "Spanish"
-      Belgian       -> "Belgian"
-      Hungarian     -> "Hungarian"
-      American      -> "American"
-      Polish        -> "Polish"
-      Norwegian     -> "Norwegian"
-      Swedish       -> "Swedish"
-      Irish         -> "Irish"
-      Finnish       -> "Finnish"
-      Portuguese    -> "Portuguese"
-      Greek         -> "Greek"
-      Catalan       -> "Catalan"
+instance ToJSON School
+instance FromJSON School
 
-instance FromJSON School where
-  parseJSON (String "German")        = return German
-  parseJSON (String "Italian")       = return Italian
-  parseJSON (String "Danish")        = return Danish
-  parseJSON (String "Flemish")       = return Flemish
-  parseJSON (String "Dutch")         = return Dutch
-  parseJSON (String "Netherlandish") = return Netherlandish
-  parseJSON (String "Swiss")         = return Swiss
-  parseJSON (String "Other")         = return Other
-  parseJSON (String "Russian")       = return Russian
-  parseJSON (String "English")       = return English
-  parseJSON (String "Austrian")      = return Austrian
-  parseJSON (String "Scottish")      = return Scottish
-  parseJSON (String "Bohemian")      = return Bohemian
-  parseJSON (String "French")        = return French
-  parseJSON (String "Spanish")       = return Spanish
-  parseJSON (String "Belgian")       = return Belgian
-  parseJSON (String "Hungarian")     = return Hungarian
-  parseJSON (String "American")      = return American
-  parseJSON (String "Polish")        = return Polish
-  parseJSON (String "Norwegian")     = return Norwegian
-  parseJSON (String "Swedish")       = return Swedish
-  parseJSON (String "Irish")         = return Irish
-  parseJSON (String "Finnish")       = return Finnish
-  parseJSON (String "Portuguese")    = return Portuguese
-  parseJSON (String "Greek")         = return Greek
-  parseJSON (String "Catalan")       = return Catalan
-  parseJSON _                        = error "Did not recognize the School"
+--instance ToJSON School where
+--  toJSON a =
+--    case a of
+--      German        -> "German"
+--      Italian       -> "Italian"
+--      Danish        -> "Danish"
+--      Flemish       -> "Flemish"
+--      Dutch         -> "Dutch"
+--      Netherlandish -> "Netherlandish"
+--      Swiss         -> "Swiss"
+--      Other         -> "Other"
+--      Russian       -> "Russian"
+--      English       -> "English"
+--      Austrian      -> "Austrian"
+--      Scottish      -> "Scottish"
+--      Bohemian      -> "Bohemian"
+--      French        -> "French"
+--      Spanish       -> "Spanish"
+--      Belgian       -> "Belgian"
+--      Hungarian     -> "Hungarian"
+--      American      -> "American"
+--      Polish        -> "Polish"
+--      Norwegian     -> "Norwegian"
+--      Swedish       -> "Swedish"
+--      Irish         -> "Irish"
+--      Finnish       -> "Finnish"
+--      Portuguese    -> "Portuguese"
+--      Greek         -> "Greek"
+--      Catalan       -> "Catalan"
+
+--instance FromJSON School where
+--  parseJSON (String "German")        = return German
+--  parseJSON (String "Italian")       = return Italian
+--  parseJSON (String "Danish")        = return Danish
+--  parseJSON (String "Flemish")       = return Flemish
+--  parseJSON (String "Dutch")         = return Dutch
+--  parseJSON (String "Netherlandish") = return Netherlandish
+--  parseJSON (String "Swiss")         = return Swiss
+--  parseJSON (String "Other")         = return Other
+--  parseJSON (String "Russian")       = return Russian
+--  parseJSON (String "English")       = return English
+--  parseJSON (String "Austrian")      = return Austrian
+--  parseJSON (String "Scottish")      = return Scottish
+--  parseJSON (String "Bohemian")      = return Bohemian
+--  parseJSON (String "French")        = return French
+--  parseJSON (String "Spanish")       = return Spanish
+--  parseJSON (String "Belgian")       = return Belgian
+--  parseJSON (String "Hungarian")     = return Hungarian
+--  parseJSON (String "American")      = return American
+--  parseJSON (String "Polish")        = return Polish
+--  parseJSON (String "Norwegian")     = return Norwegian
+--  parseJSON (String "Swedish")       = return Swedish
+--  parseJSON (String "Irish")         = return Irish
+--  parseJSON (String "Finnish")       = return Finnish
+--  parseJSON (String "Portuguese")    = return Portuguese
+--  parseJSON (String "Greek")         = return Greek
+--  parseJSON (String "Catalan")       = return Catalan
+--  parseJSON _                        = error "Did not recognize the School"
 
 instance FromField School where
   fromField f mdata = return school
