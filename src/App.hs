@@ -16,7 +16,7 @@ import           Network.Wai.Handler.Warp
 import           Servant
 import           System.IO
 
-import           Control.Exception                (bracket)
+import Control.Exception (bracket)
 import           Control.Monad.IO.Class
 import qualified Data.ByteString                  as BS
 import           Data.Pool
@@ -39,65 +39,80 @@ import Control.Concurrent (forkIO, killThread)
 import Control.Exception (bracket)
 import GHC.IO (IO)
 
+import Handlers
+
 type DBConnectionString = BS.ByteString
 
-type QueryEndpointConstraints = String
+
 
 type API
    = "artists" :> Get '[ JSON] ArtistsResponse
    :<|> "concepts" :> Get '[ JSON] ConceptNamesResponse
-   :<|> "paintings" :> Get '[ JSON] PaintingsResponse
-  
+
   -- QueryEndpointConstraints is just String
   -- can you make more nested type already?
-  -- 
-  :<|> "query" :> ReqBody '[PlainText, JSON] QueryEndpointConstraints 
+  -- maybe can't, because endpoint is receiving 'content-type: plaintext' rather than json?
+  :<|> "query" :> ReqBody '[PlainText, JSON] QueryEndpointConstraints
                 :> Post '[ JSON] PaintingsResponse
 
-
 -- check out auto derivation of Swagger docs via Servant;
-
 api :: Proxy API
 api = Proxy
 
+--getArtists :: Pool Connection -> Handler ArtistsResponse
+--getArtists conns = liftIO $
+--      fmap (ArtistsResponse . map prAuthor) $
+--      withResource conns $ \conn ->
+--        query_ conn BQ.namesQuery  :: IO [PaintingRow]
+--
+--getConcepts :: Pool Connection -> Handler ConceptNamesResponse
+--getConcepts conns = liftIO $
+--      fmap (ConceptNamesResponse . map conceptName) $
+--      withResource conns $ \conn -> query_ conn BQ.conceptsQuery :: IO [ConceptNameRow]
+--
+--queryPaintings :: Pool Connection -> QueryEndpointConstraints -> Handler PaintingsResponse
+--queryPaintings conns constraintsInfo = liftIO $
+--      fmap (PaintingsResponse . map paintingRowToPainting) $
+--      withResource conns $ \conn -> do
+--        _ <- print "queryPaintings called"
+--        _ <- print $ "plaintext arg given: " ++ constraintsInfo
+--        _ <- print $ "plainTextToConstraintsInfo result: " ++ (show (plainTextToConstraintsInfo constraintsInfo))
+--        uncurry (query conn)
+--          (BQ.buildQuery $
+--            BQ.constraints (plainTextToConstraintsInfo constraintsInfo)) :: IO [PaintingRow]
 
 server :: Pool Connection -> Server API
-server conns = getArtists :<|> getConcepts :<|> getPaintings :<|> queryPaintings
-  where
-    getArtists :: Handler ArtistsResponse
-    getArtists =
-      liftIO $
-      fmap (ArtistsResponse . map prAuthor) $
-      withResource conns $ \conn ->
-        query_ conn "select distinct author, title, date, wga_jpg, type, school, timeframe, concepts from paintings" :: IO [PaintingRow]
-    
-    getConcepts :: Handler ConceptNamesResponse
-    getConcepts =
-      liftIO $
-      fmap (ConceptNamesResponse . map conceptName) $
-      withResource conns $ \conn -> query_ conn "select distinct name from paintings_concepts" :: IO [ConceptNameRow]
-    
-    getPaintings :: Handler PaintingsResponse
-    getPaintings =
-      liftIO $
-      fmap (PaintingsResponse . map paintingRowToPainting) $
-      withResource conns $ \conn -> uncurry (query conn) BQ.sampleQuery :: IO [PaintingRow]
+server conns = getArtists conns
+               :<|> getConcepts conns
+               :<|> queryPaintings conns
+--
+--plainTextToConstraintsInfo :: String -> BQ.ConstraintsInfo
+--plainTextToConstraintsInfo s = fromJust $ decodeStrict $ fromString s
+--
+--paintingRowToPainting :: PaintingRow -> Painting
+--paintingRowToPainting pr =
+--  Painting
+--    (prAuthor pr)
+--    (prTitle pr)
+--    (prDate pr)
+--    (prJpg pr)
+--    (prGenre pr)
+--    (prSchool pr)
+--    (prTimeframe pr)
+--    (optimisticDecodeConcepts (prConcepts pr))
+--
+--parseConcepts :: Value -> Parser [Concept]
+--parseConcepts =
+--  withObject "concepts" $ \o -> do
+--    general <- o .: "general"
+--    general .: "concepts"
+--
+--optimisticDecodeConcepts :: String -> [Concept]
+--optimisticDecodeConcepts j =
+--  case parseEither parseConcepts $ fromJust $ decodeStrict $ fromString j of
+--    Left a  -> []
+--    Right b -> b
 
-    queryPaintings :: QueryEndpointConstraints -> Handler PaintingsResponse
-    queryPaintings constraintsInfo =
-      liftIO $
-      fmap (PaintingsResponse . map paintingRowToPainting) $
-      withResource conns $ \conn -> do
-        _ <- print "queryPaintings called"
-        _ <- print $ "plaintext arg given: " ++ constraintsInfo
-        _ <- print $ "plainTextToConstraintsInfo result: " ++ (show (plainTextToConstraintsInfo constraintsInfo))
-        uncurry (query conn) 
-          (BQ.buildQuery $ 
-            BQ.constraints (plainTextToConstraintsInfo constraintsInfo)) :: IO [PaintingRow]
-
-
-plainTextToConstraintsInfo :: String -> BQ.ConstraintsInfo
-plainTextToConstraintsInfo s = fromJust $ decodeStrict $ fromString s
 
 
 runApp :: Int -> Pool Connection -> IO ()
