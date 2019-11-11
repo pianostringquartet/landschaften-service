@@ -1,7 +1,5 @@
 name:                landschaften-service
 version:             0.1.0.0
--- synopsis:
--- description:
 homepage:            https://github.com/githubuser/landschaften-service#readme
 license:             BSD3
 license-file:        LICENSE
@@ -26,6 +24,7 @@ library
       aeson
     , base >= 4.7 && < 5
     , bytestring >= 0.10
+    , containers >= 0.5.9
     , http-client
     , http-types >= 0.12
     , postgresql-simple >= 0.5

@@ -9,12 +9,10 @@ import           BuildQuery                         as BQ
 import           Domain
 
 import           Data.Aeson
-import           Data.Aeson.Types                   (Parser (..), Value, parse,
+import           Data.Aeson.Types                   (Parser (..), Value,
                                                      parseEither)
-import           Data.Maybe                         (fromJust)
 import           Data.Pool
 import           Database.PostgreSQL.Simple
-import           Database.PostgreSQL.Simple.Types
 
 import           Type.Reflection                    (Typeable)
 
@@ -22,20 +20,15 @@ import           Control.Monad.IO.Class             (liftIO)
 import           Data.ByteString.UTF8               (fromString)
 import           Database.PostgreSQL.Simple.FromRow (FromRow (..), field)
 import           GHC.Generics
-import           Network.Wai
-import           Network.Wai.Handler.Warp
 import           Servant
 
-import qualified Data.Text as Text
-import Control.Monad (forM_, forM)
+import           System.IO
 
-type QueryEndpointConstraints = String
-
--- if this decoding fails, then should return a 404
--- are there servant options to do this already?
-plainTextToConstraintsInfo :: String -> BQ.ConstraintsInfo
-plainTextToConstraintsInfo s = fromJust $ decodeStrict $ fromString s
-
+import           Data.Function                      (on)
+import           Data.List                          (sortBy)
+import           Data.Set                           hiding (filter, map, take)
+import           Data.Text.Encoding                 (encodeUtf8)
+import           Data.Text.Internal                 (Text)
 
 parseConcepts :: Value -> Parser [Concept]
 parseConcepts =
@@ -43,60 +36,109 @@ parseConcepts =
     general <- o .: "general"
     general .: "concepts"
 
--- TODO: failing to decode database-stored json should return Error (ie 500),
--- not an empty list of concepts.
--- or: log the error, but don't crash the server?
+-- TODO: Log specific painting(s) whose concepts were not decodable
 optimisticDecodeConcepts :: String -> [Concept]
 optimisticDecodeConcepts json =
-  case parseEither parseConcepts $ fromJust $ decodeStrict $ fromString json of
-    Left a  -> []
+  case eitherDecodeStrict (fromString json) >>= parseEither parseConcepts of
+    Left _  -> []
     Right b -> b
+
+paintingsLimit :: Int
+--paintingsLimit = 200
+paintingsLimit = 51 -- should be determined by frontend-sent param...
+
+minimumConceptCertainty :: Float
+minimumConceptCertainty = 0.85
+
+-- We're only interested in the n-many most frequent concepts
+nMostFrequentConcepts :: Int
+nMostFrequentConcepts = 50
+
+type PaintingRow = (Int, String, String, String, String, Genre, School, String, String)
+
+rowToPainting :: PaintingRow -> Painting
+rowToPainting (id, author, title, date, wga_jpg, genre, school, timeframe, concepts) =
+  Painting id author title date wga_jpg genre school timeframe (optimisticDecodeConcepts concepts)
+
+--rowsToPaintingsResponse :: [PaintingRow] -> PaintingsResponse
+--rowsToPaintingsResponse rows = PaintingsResponse (take paintingsLimit paintings) (map paintingId paintings)
+--  where
+--    paintings = map rowToPainting rows
+rowsToPaintingsResponse :: [PaintingRow] -> PaintingsResponse
+rowsToPaintingsResponse rows =
+  PaintingsResponse
+    (take paintingsLimit paintings)
+    (map paintingId paintings)
+    (takeNMostFrequentConcepts nMostFrequentConcepts
+      (getConceptFrequencies (conceptsWithCertaintyGTE minimumConceptCertainty paintings) (length paintings)))
+  where
+    paintings = map rowToPainting rows
+
+cs :: [Concept]
+cs = [Concept "love" 0.80, Concept "joy" 0.85, Concept "pain" 0.89, Concept "affectless" 0.95]
+
+frequency :: Concept -> [Concept] -> Int -> Double
+frequency c cs totalPaintings = fromIntegral appearances / fromIntegral totalPaintings
+  where
+    conceptName = name c
+    conceptNames = map name cs
+    appearances = length (filter (== conceptName) conceptNames)
+
+-- sort the CFs from highest->lowest frequency,
+-- then take int-many
+-- this logic is correct... but the earlier logic seems wrong.
+takeNMostFrequentConcepts :: Int -> [ConceptFrequency] -> [ConceptFrequency]
+--takeNMostFrequentConcepts n cfs = take n $ reverse $ sortBy (compare `on` snd) cfs
+takeNMostFrequentConcepts n cfs = take n $ sortBy (flip compare `on` snd) cfs
+
+-- want to turn these ConceptFrequencies into a set, or otherwise remove duplicates;
+-- i.e. calculate the frequency of every concept FIRST, then remove any duplicates results
+getConceptFrequencies :: [Concept] -> Int -> [ConceptFrequency]
+--getConceptFrequencies cs totalPaintings = map (\c -> (name c, frequency c cs totalPaintings)) cs
+getConceptFrequencies cs totalPaintings = toList . fromList $ map (\c -> (name c, frequency c cs totalPaintings)) cs
+
+highCertaintyConcepts :: [Concept] -> [Concept]
+highCertaintyConcepts = filter (\concept -> value concept >= minimumConceptCertainty)
+
+-- this is true, but if two different paintings each have concept C
+-- and in each case have C rated above the threshold,
+-- we'll end up with multiple versions of that same concept
+conceptsWithCertaintyGTE :: Float -> [Painting] -> [Concept]
+conceptsWithCertaintyGTE certaintyGTE ps = filter (\concept -> value concept >= certaintyGTE) $ concatMap concepts ps
 
 getArtists :: Pool Connection -> Handler ArtistsResponse
 getArtists conns =
   liftIO $
-  fmap (ArtistsResponse . map prAuthor) $ withResource conns $ \conn -> query_ conn BQ.namesQuery :: IO [PaintingRow]
+  fmap (ArtistsResponse . map artistName) $
+  withResource conns $ \conn -> query_ conn BQ.namesQuery :: IO [ArtistNameRow]
 
-
--- can't use `:: IO [Concept]` because query string is just grabbing one field ("name")
---
+-- can't use `:: IO [Concept]` because query string is just grabbing one field ("name");
+-- don't want to attach a temporary name to the field (as ConceptNameRow does);
+-- withdrawing and casting via `:: String` throws PostgreSQL error
 getConcepts :: Pool Connection -> Handler ConceptNamesResponse
 getConcepts conns =
   liftIO $
   fmap (ConceptNamesResponse . map conceptName) $
   withResource conns $ \conn -> query_ conn BQ.conceptsQuery :: IO [ConceptNameRow]
 
---getConcepts :: Pool Connection -> Handler ConceptNamesResponse
---getConcepts conns =
---  liftIO $
---  -- just return strings here; Concept is otherwise already something in your app
---  -- or, withdraw the rows as Concepts, then take the part you need
-----return $ ConceptNamesResponse $
---  withResource conns $ \conn -> do
---    xs <- query_ conn BQ.conceptsQuery :: IO [String]
---    return $ ConceptNamesResponse $ forM xs $ \(conceptName) -> return (conceptName :: String)
-
-
-queryPaintings :: Pool Connection -> QueryEndpointConstraints -> Handler PaintingsResponse
+queryPaintings :: Pool Connection -> Text -> Handler PaintingsResponse
 queryPaintings conns constraintsInfo =
-  liftIO $
---  fmap (PaintingsResponse . map paintingRowToPainting) $
-  fmap PaintingsResponse $
-  withResource conns $ \conn -> do
-    _ <- print "queryPaintings called"
-    _ <- print $ "plaintext arg given: " ++ constraintsInfo
-    _ <- print $ "plainTextToConstraintsInfo result: " ++ (show (plainTextToConstraintsInfo constraintsInfo))
-    xs <-
-        uncurry (query conn) (BQ.buildQuery $ BQ.constraints (plainTextToConstraintsInfo constraintsInfo))
-    forM xs $ \(author, title, date, wga_jpg, genre, school, timeframe, concepts) ->
-      return $ Painting author title date wga_jpg genre school timeframe (optimisticDecodeConcepts concepts)
+  case eitherDecodeStrict $ encodeUtf8 constraintsInfo of
+    Left _ -> throwError err422
+    Right decodedConstraints ->
+      liftIO $
+      fmap rowsToPaintingsResponse $
+      withResource conns $ \conn -> uncurry (query conn) (BQ.buildQuery $ BQ.constraints decodedConstraints)
 
--- fmap this over the xs?
---rowToPainting :: (String, String, String, String, Genre, School, String, String) -> Painting
---rowToPainting (author, title, date, wga_jpg, genre, school, timeframe, concepts) =
---  Painting author title date wga_jpg genre school timeframe (optimisticDecodeConcepts concepts)
-
-
+--queryPaintings :: Pool Connection -> Text -> Handler PaintingsResponse
+--queryPaintings conns constraintsInfo =
+--    case eitherDecodeStrict $ encodeUtf8 constraintsInfo of
+--    Left _ -> throwError err422
+--    Right decodedConstraints ->
+--      liftIO $
+--      fmap (PaintingsResponse . map rowToPainting) $
+--      withResource conns $ \conn ->
+--        uncurry (query conn) (BQ.buildQuery $ BQ.constraints decodedConstraints)
 newtype ConceptNamesResponse =
   ConceptNamesResponse
     { conceptNames :: [String]
@@ -130,9 +172,23 @@ instance ToJSON ArtistsResponse
 
 instance FromJSON ArtistsResponse
 
-newtype PaintingsResponse =
+newtype ArtistNameRow =
+  ArtistNameRow
+    { artistName :: String
+    }
+  deriving (Eq, Show, Read, Generic)
+
+instance FromRow ArtistNameRow where
+  fromRow = ArtistNameRow <$> field
+
+-- for now, bundle all this together into a single request
+-- needs to now be :paintings, :painting ids
+--newtype PaintingsResponse =
+data PaintingsResponse =
   PaintingsResponse
-    { paintings :: [Painting]
+    { paintings          :: [Painting]
+    , paintingIds        :: [Int]
+    , conceptFrequencies :: [ConceptFrequency]
     }
   deriving (Eq, Show, Read, Generic, Typeable)
 
@@ -146,25 +202,5 @@ newtype ConceptRow =
     }
   deriving (Eq, Show, Read, Generic, Typeable)
 
---instance ToJSON ConceptRow
---instance FromJSON ConceptRow
 instance FromRow ConceptRow where
   fromRow = ConceptRow <$> field
-
---instance FromField ConceptRow where
---  fromField f mdata = fromJSONField
-data PaintingRow =
-  PaintingRow
-    { prAuthor    :: String
-    , prTitle     :: String
-    , prDate      :: String
-    , prJpg       :: String
-    , prGenre     :: Genre
-    , prSchool    :: School
-    , prTimeframe :: String
-    , prConcepts  :: String -- a json-formatted string, as in ConceptRow
-    }
-  deriving (Eq, Show, Read, Generic, Typeable)
-
-instance FromRow PaintingRow where
-  fromRow = PaintingRow <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field

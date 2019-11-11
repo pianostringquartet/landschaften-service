@@ -11,24 +11,21 @@ import           Data.ByteString.Char8                (ByteString)
 import           Data.Maybe                           (fromJust)
 import           Database.PostgreSQL.Simple.FromField (FromField (..),
                                                        fromJSONField)
---import           Database.PostgreSQL.Simple.FromRow   (FromRow (..), field)
---import           Database.PostgreSQL.Simple.ToField   (ToField (..))
---import           Database.PostgreSQL.Simple.ToRow     (ToRow (..))
 import           Database.PostgreSQL.Simple.Types
 import           GHC.Generics
 import           Type.Reflection                      (Typeable)
---- DOMAIN:
 
 data Painting =
   Painting
-    { author    :: String -- make a custom type?
-    , title     :: String
-    , date      :: String
-    , jpg       :: String -- WGA_JPEG, not the Cloudinary jpeg
-    , genre     :: Genre -- aka "type" in the db tables
-    , school    :: School
-    , timeframe :: String
-    , concepts  :: [Concept]
+    { paintingId :: Int
+    , author     :: String -- better?: make a custom type Author
+    , title      :: String
+    , date       :: String
+    , jpg        :: String -- WGA_JPEG, not the Cloudinary jpeg
+    , genre      :: Genre -- aka "type" in the db tables
+    , school     :: School
+    , timeframe  :: String
+    , concepts   :: [Concept]
     }
   deriving (Eq, Show, Read, Generic, Typeable)
 
@@ -36,17 +33,19 @@ instance ToJSON Painting
 
 instance FromJSON Painting
 
-
-data Concept =
-  Concept
-    { name  :: String
-    , value :: Float
-    }
+data Concept = Concept { name  :: String , value :: Float }
   deriving (Eq, Show, Read, Generic, Typeable)
 
 instance ToJSON Concept
 
 instance FromJSON Concept
+
+--data ConceptFrequency =
+--  ConceptFrequency
+--    { conceptName :: String
+--    , frequency   :: Double
+--    }
+type ConceptFrequency = (String, Double)
 
 newtype GenreWrapper =
   GenreWrapper String
