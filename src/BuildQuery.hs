@@ -68,6 +68,7 @@ base cs
     hasConceptConstraints = any isConceptConstraint cs
     hasPaintingConstraints = any isPaintingConstraint cs
 
+-- TODO: parameterize rather than hardcode the minimum concept certainty
 buildQuery :: [Constraint] -> ParameterizedQuery
 buildQuery cs =
   if null cs
@@ -75,7 +76,9 @@ buildQuery cs =
     else (Query $ fromString queryString, queryParams)
   where
     paintingSnippet c = ("t." ++ column c ++ " in ?", In $ values c)
-    conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
+--    conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
+
+    conceptSnippet c = ("t2." ++ column c ++ " in ? and t2.value >= 0.85", In $ values c)
     allSnippets =
       map
         (\c ->

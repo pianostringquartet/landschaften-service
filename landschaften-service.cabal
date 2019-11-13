@@ -47,7 +47,6 @@ executable landschaften-service
   main-is:             Main.hs
   other-modules:
     Paths_landschaften_service
---    ghc-options: -Wall
   ghc-options:       -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
                     base
