@@ -21,9 +21,12 @@ data Constraint =
 
 instance FromJSON Constraint
 
+-- add something like: 
+-- certainty-level
 newtype ConstraintsInfo =
   ConstraintsInfo
     { constraints :: [Constraint]
+      
     }
   deriving (Eq, Show, Read, Generic)
 
@@ -78,6 +81,7 @@ buildQuery cs =
     paintingSnippet c = ("t." ++ column c ++ " in ?", In $ values c)
 --    conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
 
+-- this needs to be passed in
     conceptSnippet c = ("t2." ++ column c ++ " in ? and t2.value >= 0.85", In $ values c)
     allSnippets =
       map

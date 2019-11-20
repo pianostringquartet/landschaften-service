@@ -27,7 +27,6 @@ import           System.IO
 import           Data.Function                      (on)
 import           Data.List                          (sortBy, nub)
 
---import           Data.Set                           hiding (filter, map, take)
 import qualified Data.Set                           as D
 import           Data.Text.Encoding                 (encodeUtf8)
 import           Data.Text.Internal                 (Text)
@@ -45,9 +44,10 @@ optimisticDecodeConcepts json =
     Left _  -> []
     Right b -> b
 
+
 paintingsLimit :: Int
---paintingsLimit = 200
-paintingsLimit = 51 -- should be determined by frontend-sent param...
+paintingsLimit = 200
+--paintingsLimit = 51 -- should be determined by frontend-sent param...
 
 minimumConceptCertainty :: Float
 minimumConceptCertainty = 0.85
@@ -67,20 +67,16 @@ rowsToPaintingsResponse rows =
   PaintingsResponse
     (take paintingsLimit paintings)
     (map paintingId paintings)
-    (takeNMostFrequentConcepts2
+    (takeNMostFrequentConcepts
        nMostFrequentConcepts
        (getConceptFrequencies
             (concatMap concepts paintingsSampleSet)
             (length paintingsSampleSet))
       )
-    (length paintings)
   where
     paintings = map rowToPainting rows
     sampleSize = getSampleSize (length paintings)
     paintingsSampleSet = take (getSampleSize (length paintings)) paintings
-
-cs :: [Concept]
-cs = [Concept "love" 0.80, Concept "joy" 0.85, Concept "pain" 0.89, Concept "affectless" 0.95]
 
 -- test: getSampleSize 30000 -> 379
 getSampleSize :: Int -> Int
@@ -107,26 +103,10 @@ frequency2 conceptName conceptNames totalPaintings = fromIntegral appearances / 
   where
     appearances = length (filter (== conceptName) conceptNames)
 
--- sort the CFs from highest->lowest frequency,
--- then take int-many
--- this logic is correct... but the earlier logic seems wrong.
-takeNMostFrequentConcepts :: Int -> [ConceptFrequency] -> [ConceptFrequency]
---takeNMostFrequentConcepts n cfs = take n $ reverse $ sortBy (compare `on` snd) cfs
-takeNMostFrequentConcepts n cfs = take n $ sortBy (flip compare `on` snd) cfs
 
+takeNMostFrequentConcepts :: Int -> D.Set ConceptFrequency -> [ConceptFrequency]
+takeNMostFrequentConcepts n cfs = take n $ sortBy (flip compare `on` snd) (D.toList cfs)
 
--- can you combine these operations, e.g. sort while turning set into a list?
--- is haskell doing that under the hood?
-takeNMostFrequentConcepts2 :: Int -> D.Set ConceptFrequency -> [ConceptFrequency]
-takeNMostFrequentConcepts2 n cfs = take n $ sortBy (flip compare `on` snd) (D.toList cfs)
-
--- want to turn these ConceptFrequencies into a set, or otherwise remove duplicates;
--- i.e. calculate the frequency of every concept FIRST, then remove any duplicates results
-
-
--- possibly want D.Sequence type here, for finite lists?
--- does this set actually help?
---getConceptFrequencies :: [Concept] -> Int -> D.Set ConceptFrequency -- D.Set Concept --
 getConceptFrequencies :: [Concept] -> Int -> D.Set ConceptFrequency -- D.Set Concept --
 getConceptFrequencies concepts totalPaintings =
    D.map (\conceptName -> (conceptName, frequency2 conceptName conceptNames totalPaintings)) uniqueConceptNames
@@ -134,18 +114,8 @@ getConceptFrequencies concepts totalPaintings =
     conceptNames = map name concepts
     uniqueConceptNames = D.fromList conceptNames
 
---getConceptFrequencies cs totalPaintings = toList . fromList $ map (\c -> (name c, frequency c cs totalPaintings)) cs
---- ^^^^ when no `toList . fromList`, then
--- better implementation: if concept-already-seen then don't calculate frequency
--- i.e. so can't do a map, because not every member of the list will be used
--- instead of iterating through all members, just iterate through unique members
---highCertaintyConcepts :: [Concept] -> [Concept]
---highCertaintyConcepts = filter (\concept -> value concept >= minimumConceptCertainty)
--- this is true, but if two different paintings each have concept C
--- and in each case have C rated above the threshold,
--- we'll end up with multiple versions of that same concept
-conceptsWithCertaintyGTE :: Float -> [Painting] -> [Concept]
-conceptsWithCertaintyGTE certaintyGTE ps = filter (\concept -> value concept >= certaintyGTE) $ concatMap concepts ps
+--conceptsWithCertaintyGTE :: Float -> [Painting] -> [Concept]
+--conceptsWithCertaintyGTE certaintyGTE ps = filter (\concept -> value concept >= certaintyGTE) $ concatMap concepts ps
 
 getArtists :: Pool Connection -> Handler ArtistsResponse
 getArtists conns =
@@ -153,6 +123,7 @@ getArtists conns =
   fmap (ArtistsResponse . map artistName) $
   withResource conns $ \conn -> query_ conn BQ.namesQuery :: IO [ArtistNameRow]
 
+-- TODO: eliminate the ConceptNameRow middleware type;
 -- can't use `:: IO [Concept]` because query string is just grabbing one field ("name");
 -- don't want to attach a temporary name to the field (as ConceptNameRow does);
 -- withdrawing and casting via `:: String` throws PostgreSQL error
@@ -219,8 +190,7 @@ data PaintingsResponse =
   PaintingsResponse
     { paintings          :: [Painting]
     , paintingIds        :: [Int]
-    , conceptFrequencies :: [ConceptFrequency] -- D.Set ConceptFrequency
-    , total :: Int
+    , conceptFrequencies :: [ConceptFrequency]
     }
   deriving (Eq, Show, Read, Generic, Typeable)
 
