@@ -10,7 +10,6 @@ import           System.Environment
 
 main :: IO ()
 main
---  let connStr = "postgresql://localhost:5432/bilder"
  = do
   portNumber <- getEnv "PORT"
   connStr <- getEnv "DB_URL"

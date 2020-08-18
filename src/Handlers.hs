@@ -31,6 +31,11 @@ import qualified Data.Set                           as D
 import           Data.Text.Encoding                 (encodeUtf8)
 import           Data.Text.Internal                 (Text)
 
+
+-- ****************
+-- HANDLER HELPERS
+-- ****************
+
 parseConcepts :: Value -> Parser [Concept]
 parseConcepts =
   withObject "concepts" $ \o -> do
@@ -44,46 +49,64 @@ optimisticDecodeConcepts json =
     Left _  -> []
     Right b -> b
 
-
-paintingsLimit :: Int
-paintingsLimit = 200
---paintingsLimit = 51 -- should be determined by frontend-sent param...
-
-minimumConceptCertainty :: Float
-minimumConceptCertainty = 0.85
-
--- We're only interested in the n-many most frequent concepts
-nMostFrequentConcepts :: Int
-nMostFrequentConcepts = 50
-
 type PaintingRow = (Int, String, String, String, String, Genre, School, String, String)
 
 rowToPainting :: PaintingRow -> Painting
 rowToPainting (id, author, title, date, wga_jpg, genre, school, timeframe, concepts) =
   Painting id author title date wga_jpg genre school timeframe (optimisticDecodeConcepts concepts)
 
-rowsToPaintingsResponse :: [PaintingRow] -> PaintingsResponse
-rowsToPaintingsResponse rows =
-  PaintingsResponse
-    (take paintingsLimit paintings)
-    (map paintingId paintings)
-    (takeNMostFrequentConcepts
-       nMostFrequentConcepts
-       (getConceptFrequencies
-            (concatMap concepts paintingsSampleSet)
-            (length paintingsSampleSet))
-      )
-  where
-    paintings = map rowToPainting rows
-    sampleSize = getSampleSize (length paintings)
-    paintingsSampleSet = take (getSampleSize (length paintings)) paintings
+---- TODO: receive from frontend OR make function of sample size
+---- More than 200 paintings is too much to visually inspect
+--paintingsLimit :: Int
+--paintingsLimit = 200
+--
+--nManyConcepts :: Int
+--nManyConcepts = 50
 
--- test: getSampleSize 30000 -> 379
+--paintingsToPaintingsResponse :: [Painting] -> PaintingsResponse
+--paintingsToPaintingsResponse paintings =
+paintingsToPaintingsResponse :: Int -> Int -> [Painting] -> PaintingsResponse
+paintingsToPaintingsResponse limit nMostFrequent paintings =
+  PaintingsResponse
+      (take limit paintings)
+      (map paintingId paintings)
+      nMostFrequentConcepts
+    where
+      sampleSize = getSampleSize (length paintings)
+      paintingsSampleSet = take sampleSize paintings
+      conceptFrequencies = getConceptFrequencies
+                               (concatMap concepts paintingsSampleSet)
+                               (length paintingsSampleSet)
+      -- Only send frontend n-many 'most frequent' concepts:
+      nMostFrequentConcepts = take nMostFrequent
+                                   (sortBy (flip compare `on` snd) (D.toList conceptFrequencies))
+
+
+-- ie "Finds out how often (e.g. 10.5 times) a frequency appears
+-- how frequently X appears
+frequency :: String -> [String] -> Int -> Double
+frequency conceptName conceptNames totalPaintings =
+  fromIntegral appearances / fromIntegral totalPaintings
+  where
+    appearances = length (filter (== conceptName) conceptNames)
+
+-- A concept's frequency (concept, frequency) = a concept and how frequently it appears in a set of paintings
+-- (e.g. if 10 paintings total, and 2 paintings have concept C, then concept C's frequency is 20%)
+getConceptFrequencies :: [Concept] -> Int -> D.Set ConceptFrequency -- D.Set Concept --
+getConceptFrequencies concepts totalPaintings =
+   D.map
+    (\conceptName -> (conceptName, frequency conceptName conceptNames totalPaintings))
+    uniqueConceptNames
+  where
+    conceptNames = map name concepts
+    uniqueConceptNames = D.fromList conceptNames
+
+
 getSampleSize :: Int -> Int
 getSampleSize population =
   round $ numerator / denominator
   where n = fromIntegral population
-        errorMargin = 0.05 -- 5% margin of error 
+        errorMargin = 0.05 -- 5% margin of error
         z = 1.96 -- for a 95% confidence level
         sigma = 0.5 -- standard deviation
         zS = (z^2) * (sigma^2)
@@ -91,31 +114,9 @@ getSampleSize population =
         denominator = errorMargin^2 + (zS / (n - 1))
 
 
-frequency :: Concept -> [Concept] -> Int -> Double
-frequency c cs totalPaintings = fromIntegral appearances / fromIntegral totalPaintings
-  where
-    conceptName = name c
-    conceptNames = map name cs
-    appearances = length (filter (== conceptName) conceptNames)
-
-frequency2 :: String -> [String] -> Int -> Double
-frequency2 conceptName conceptNames totalPaintings = fromIntegral appearances / fromIntegral totalPaintings
-  where
-    appearances = length (filter (== conceptName) conceptNames)
-
-
-takeNMostFrequentConcepts :: Int -> D.Set ConceptFrequency -> [ConceptFrequency]
-takeNMostFrequentConcepts n cfs = take n $ sortBy (flip compare `on` snd) (D.toList cfs)
-
-getConceptFrequencies :: [Concept] -> Int -> D.Set ConceptFrequency -- D.Set Concept --
-getConceptFrequencies concepts totalPaintings =
-   D.map (\conceptName -> (conceptName, frequency2 conceptName conceptNames totalPaintings)) uniqueConceptNames
-  where
-    conceptNames = map name concepts
-    uniqueConceptNames = D.fromList conceptNames
-
---conceptsWithCertaintyGTE :: Float -> [Painting] -> [Concept]
---conceptsWithCertaintyGTE certaintyGTE ps = filter (\concept -> value concept >= certaintyGTE) $ concatMap concepts ps
+-- ****************
+-- HANDLERS
+-- ****************
 
 getArtists :: Pool Connection -> Handler ArtistsResponse
 getArtists conns =
@@ -133,14 +134,29 @@ getConcepts conns =
   fmap (ConceptNamesResponse . map conceptName) $
   withResource conns $ \conn -> query_ conn BQ.conceptsQuery :: IO [ConceptNameRow]
 
+
+-- TODO: receive from frontend OR make function of sample size
+-- More than 200 paintings is too much to visually inspect
+paintingsLimit :: Int
+paintingsLimit = 200
+
+nManyConcepts :: Int
+nManyConcepts = 50
+
 queryPaintings :: Pool Connection -> Text -> Handler PaintingsResponse
 queryPaintings conns constraintsInfo =
   case eitherDecodeStrict $ encodeUtf8 constraintsInfo of
     Left _ -> throwError err422
     Right decodedConstraints ->
       liftIO $
-      fmap rowsToPaintingsResponse $
+--      fmap (paintingsToPaintingsResponse . map rowToPainting) $
+      fmap (paintingsToPaintingsResponse paintingsLimit nManyConcepts . map rowToPainting) $
       withResource conns $ \conn -> uncurry (query conn) (BQ.buildQuery $ BQ.constraints decodedConstraints)
+
+
+-- ****************
+-- DATA TYPES
+-- ****************
 
 newtype ConceptNamesResponse =
   ConceptNamesResponse
@@ -184,8 +200,6 @@ newtype ArtistNameRow =
 instance FromRow ArtistNameRow where
   fromRow = ArtistNameRow <$> field
 
--- for now, bundle all this together into a single request
--- needs to now be :paintings, :painting ids
 data PaintingsResponse =
   PaintingsResponse
     { paintings          :: [Painting]

@@ -30,6 +30,7 @@ type API
 api :: Proxy API
 api = Proxy
 
+
 server :: Pool Connection -> Server API
 server conns = getArtists conns :<|> getConcepts conns :<|> queryPaintings conns
 
@@ -46,6 +47,8 @@ corsWithContentType = cors (const $ Just policy)
   where
     policy = simpleCorsResourcePolicy {corsRequestHeaders = ["Content-Type"]}
 
+-- can you clarify or simplify here?
+-- what does Haskell's 'return' mean here again? 
 mkApp :: Pool Connection -> IO Application
 mkApp conns = return $ corsWithContentType $ provideOptions api $ serve api $ server conns
 
@@ -55,5 +58,5 @@ initConnectionPool connStr =
     (connectPostgreSQL connStr)
     close
     2 -- # stripes (?)
-    60 -- unused connxns kept open for 60 seconds
+    60 -- unused connections kept open for 60 seconds
     10 -- max conns per strip

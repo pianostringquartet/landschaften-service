@@ -33,7 +33,6 @@ instance ToJSON Painting
 
 instance FromJSON Painting
 
--- add Ord or something like Comparable, to indicate we can order the concepts by `value` field?
 data Concept = Concept { name  :: String , value :: Float }
   deriving (Eq, Show, Read, Ord, Generic, Typeable)
 
@@ -41,6 +40,7 @@ instance ToJSON Concept
 
 instance FromJSON Concept
 
+-- A concept and how often it appears in paintings set
 type ConceptFrequency = (String, Double)
 
 newtype GenreWrapper =

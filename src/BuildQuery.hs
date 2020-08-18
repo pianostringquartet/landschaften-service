@@ -12,6 +12,7 @@ import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.Types
 import           GHC.Generics
 
+
 data Constraint =
   Constraint
     { column :: String
@@ -21,22 +22,16 @@ data Constraint =
 
 instance FromJSON Constraint
 
--- add something like: 
--- certainty-level
 newtype ConstraintsInfo =
   ConstraintsInfo
     { constraints :: [Constraint]
-      
     }
   deriving (Eq, Show, Read, Generic)
 
 instance FromJSON ConstraintsInfo
 
--- TODO: Can you instead parse the constraints-json and create a subtype? e.g.
--- Constraints = PaintingConstraints | ConceptConstraints
-
--- ... better?: put them in 'mutually exclusive' vs. 'inclusive / can overlap' sets?
--- Constraints = AndConstraint | OrConstraint
+-- TODO: Can you parse the constraints-json and create a subtype?
+-- e.g. Constraints = PaintingConstraints | ConceptConstraints
 
 isConceptConstraint :: Constraint -> Bool
 isConceptConstraint constraint = column constraint == "name"
@@ -45,11 +40,7 @@ isPaintingConstraint :: Constraint -> Bool
 isPaintingConstraint constraint = column constraint `elem` 
                                         ["school", "timeframe", "type", "author"]
 
--- better?: just use 'select distinct author from paintings'
--- this returns 1 row per painting, and then we pull out just the author name
--- hence the duplicate author names
 namesQuery :: Query
---namesQuery = "select distinct author, title, date, wga_jpg, type, school, timeframe, concepts from paintings"
 namesQuery = "select distinct author from paintings"
 
 conceptsQuery :: Query
@@ -60,7 +51,6 @@ noConstraintsQuery = "select distinct id, author, title, date, wga_jpg, type, sc
 
 type ParameterizedQuery = (Query, [In [String]])
 
--- better?: match on conceptConstraint vs. paintingConstraint
 base :: [Constraint] -> String
 base cs
   | hasConceptConstraints =
@@ -71,7 +61,10 @@ base cs
     hasConceptConstraints = any isConceptConstraint cs
     hasPaintingConstraints = any isPaintingConstraint cs
 
--- TODO: parameterize rather than hardcode the minimum concept certainty
+-- TODO: receive minimum concept certainty from frontend
+minimumConceptCertainty :: String
+minimumConceptCertainty = "0.85"
+
 buildQuery :: [Constraint] -> ParameterizedQuery
 buildQuery cs =
   if null cs
@@ -79,10 +72,7 @@ buildQuery cs =
     else (Query $ fromString queryString, queryParams)
   where
     paintingSnippet c = ("t." ++ column c ++ " in ?", In $ values c)
---    conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
-
--- this needs to be passed in
-    conceptSnippet c = ("t2." ++ column c ++ " in ? and t2.value >= 0.85", In $ values c)
+    conceptSnippet c = ("t2." ++ column c ++ " in ? and t2.value >= " ++ minimumConceptCertainty, In $ values c)
     allSnippets =
       map
         (\c ->
