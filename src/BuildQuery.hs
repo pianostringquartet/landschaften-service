@@ -59,7 +59,7 @@ base cs
     hasConceptConstraints = any isConceptConstraint cs
     hasPaintingConstraints = any isPaintingConstraint cs
 
--- TODO: Receive minimum concept certainty from frontend
+-- TODO: Get minimum concept certainty from frontend
 minimumConceptCertainty :: String
 minimumConceptCertainty = "0.85"
 
