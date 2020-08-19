@@ -4,6 +4,8 @@
 
 It uses [Stack](https://docs.haskellstack.org/en/stable/README/) for the build tool and [Servant](https://www.servant.dev/) for the server and API.
 
+![](Claude_Monet,_Fishing_Boats_Leaving_the_Harbor,_Le_Havre.jpg) 
+
 ## Preparing to run the app
 
 If you've never the run the app before, you will need to initialize it.
