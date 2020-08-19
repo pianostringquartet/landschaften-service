@@ -1,0 +1,6 @@
+Configuring th-orphans-0.13.8...
+Preprocessing library for th-orphans-0.13.8..
+Building library for th-orphans-0.13.8..
+[1 of 1] Compiling Language.Haskell.TH.Instances
+Installing library in /Users/concerto/.stack/snapshots/x86_64-osx/84fdb0801e20e190b175a4220b279580e43ce1b8c67f10ad9d95f48822c919b0/8.6.5/lib/x86_64-osx-ghc-8.6.5/th-orphans-0.13.8-Fb93NkR9WlbDTQKP8g5oJR
+Registering library for th-orphans-0.13.8..
