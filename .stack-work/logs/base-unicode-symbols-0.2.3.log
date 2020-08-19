@@ -1,0 +1,19 @@
+Configuring base-unicode-symbols-0.2.3...
+Preprocessing library for base-unicode-symbols-0.2.3..
+Building library for base-unicode-symbols-0.2.3..
+[ 1 of 14] Compiling Control.Applicative.Unicode
+[ 2 of 14] Compiling Control.Category.Unicode
+[ 3 of 14] Compiling Control.Arrow.Unicode
+[ 4 of 14] Compiling Control.Monad.Unicode
+[ 5 of 14] Compiling Data.Bool.Unicode
+[ 6 of 14] Compiling Data.Eq.Unicode
+[ 7 of 14] Compiling Data.Foldable.Unicode
+[ 8 of 14] Compiling Data.Function.Unicode
+[ 9 of 14] Compiling Data.List.Unicode
+[10 of 14] Compiling Data.Monoid.Unicode
+[11 of 14] Compiling Data.Ord.Unicode
+[12 of 14] Compiling Data.String.Unicode
+[13 of 14] Compiling Numeric.Natural.Unicode
+[14 of 14] Compiling Prelude.Unicode
+Installing library in /Users/concerto/.stack/snapshots/x86_64-osx/84fdb0801e20e190b175a4220b279580e43ce1b8c67f10ad9d95f48822c919b0/8.6.5/lib/x86_64-osx-ghc-8.6.5/base-unicode-symbols-0.2.3-I46DNdyiPiyCN29zbLeSBM
+Registering library for base-unicode-symbols-0.2.3..
