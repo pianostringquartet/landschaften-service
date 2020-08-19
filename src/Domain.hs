@@ -18,11 +18,11 @@ import           Type.Reflection                      (Typeable)
 data Painting =
   Painting
     { paintingId :: Int
-    , author     :: String -- better?: make a custom type Author
+    , author     :: String -- TODO?: make a custom type Author
     , title      :: String
     , date       :: String
     , jpg        :: String -- WGA_JPEG, not the Cloudinary jpeg
-    , genre      :: Genre -- aka "type" in the db tables
+    , genre      :: Genre -- i.e. "type" in the db tables
     , school     :: School
     , timeframe  :: String
     , concepts   :: [Concept]
@@ -33,14 +33,18 @@ instance ToJSON Painting
 
 instance FromJSON Painting
 
-data Concept = Concept { name  :: String , value :: Float }
+data Concept =
+  Concept
+    { name  :: String
+    , value :: Float
+    }
   deriving (Eq, Show, Read, Ord, Generic, Typeable)
 
 instance ToJSON Concept
 
 instance FromJSON Concept
 
--- A concept and how often it appears in paintings set
+-- A concept and how often it appears in a paintings-set
 type ConceptFrequency = (String, Double)
 
 newtype GenreWrapper =
@@ -178,3 +182,4 @@ instance FromField School where
           Just "Greek"         -> Greek
           Just "Catalan"       -> Catalan
           _                    -> Other
+

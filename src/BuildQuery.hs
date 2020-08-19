@@ -12,7 +12,6 @@ import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.Types
 import           GHC.Generics
 
-
 data Constraint =
   Constraint
     { column :: String
@@ -32,13 +31,11 @@ instance FromJSON ConstraintsInfo
 
 -- TODO: Can you parse the constraints-json and create a subtype?
 -- e.g. Constraints = PaintingConstraints | ConceptConstraints
-
 isConceptConstraint :: Constraint -> Bool
 isConceptConstraint constraint = column constraint == "name"
 
 isPaintingConstraint :: Constraint -> Bool
-isPaintingConstraint constraint = column constraint `elem` 
-                                        ["school", "timeframe", "type", "author"]
+isPaintingConstraint constraint = column constraint `elem` ["school", "timeframe", "type", "author"]
 
 namesQuery :: Query
 namesQuery = "select distinct author from paintings"
@@ -47,21 +44,22 @@ conceptsQuery :: Query
 conceptsQuery = "select distinct name from paintings_concepts"
 
 noConstraintsQuery :: Query
-noConstraintsQuery = "select distinct id, author, title, date, wga_jpg, type, school, timeframe, concepts from paintings"
+noConstraintsQuery =
+  "select distinct id, author, title, date, wga_jpg, type, school, timeframe, concepts from paintings"
 
 type ParameterizedQuery = (Query, [In [String]])
 
 base :: [Constraint] -> String
 base cs
   | hasConceptConstraints =
-     "select distinct t.id, t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t, paintings_concepts t2 where t.id = t2.painting_id and "
+    "select distinct t.id, t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t, paintings_concepts t2 where t.id = t2.painting_id and "
   | hasPaintingConstraints && not hasConceptConstraints =
     "select distinct t.id, t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t where "
   where
     hasConceptConstraints = any isConceptConstraint cs
     hasPaintingConstraints = any isPaintingConstraint cs
 
--- TODO: receive minimum concept certainty from frontend
+-- TODO: Receive minimum concept certainty from frontend
 minimumConceptCertainty :: String
 minimumConceptCertainty = "0.85"
 

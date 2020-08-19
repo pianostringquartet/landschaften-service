@@ -17,19 +17,16 @@ import           Network.Wai.Middleware.Servant.Options
 
 import           GHC.IO                                 (IO)
 
+import           Data.Text.Internal                     (Text)
 import           Handlers
-import Data.Text.Internal (Text)
 
 type DBConnectionString = BS.ByteString
 
 type API
-      = "artists" :> Get '[ JSON] ArtistsResponse 
-      :<|> "concepts" :> Get '[ JSON] ConceptNamesResponse
-      :<|> "query" :> ReqBody '[ PlainText, JSON] Text :> Post '[ JSON] PaintingsResponse
+   = "artists" :> Get '[ JSON] ArtistsResponse :<|> "concepts" :> Get '[ JSON] ConceptNamesResponse :<|> "query" :> ReqBody '[ PlainText, JSON] Text :> Post '[ JSON] PaintingsResponse
 
 api :: Proxy API
 api = Proxy
-
 
 server :: Pool Connection -> Server API
 server conns = getArtists conns :<|> getConcepts conns :<|> queryPaintings conns
@@ -47,8 +44,6 @@ corsWithContentType = cors (const $ Just policy)
   where
     policy = simpleCorsResourcePolicy {corsRequestHeaders = ["Content-Type"]}
 
--- can you clarify or simplify here?
--- what does Haskell's 'return' mean here again? 
 mkApp :: Pool Connection -> IO Application
 mkApp conns = return $ corsWithContentType $ provideOptions api $ serve api $ server conns
 

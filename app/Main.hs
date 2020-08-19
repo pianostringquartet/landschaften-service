@@ -9,8 +9,7 @@ import           Data.ByteString.UTF8 (fromString)
 import           System.Environment
 
 main :: IO ()
-main
- = do
+main = do
   portNumber <- getEnv "PORT"
   connStr <- getEnv "DB_URL"
   pool <- initConnectionPool (fromString connStr)
