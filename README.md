@@ -50,7 +50,7 @@ http://localhost:8080/query -X POST -H "Content-Type: text/plain; charset=utf-8"
 #### Run tests (Hspec)
 
 Tests are defined as specs, per [Hspec](https://hspec.github.io/writing-specs.html).  
-The `hspec-discover` pragma (see `test/Spec/hs`) will discover and run any specs. 
+The `hspec-discover` pragma (see `test/Spec.hs`) will discover and run any specs. 
 
 There are several ways to run the tests.
 
