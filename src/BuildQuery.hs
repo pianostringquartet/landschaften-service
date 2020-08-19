@@ -1,20 +1,16 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 
 module BuildQuery where
 
 import           Data.Aeson
-import           Data.Aeson.Types
 import           Data.ByteString.UTF8             (fromString)
 import           Data.List
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.Types
-import           Domain
 import           GHC.Generics
-import Servant.API.ContentTypes (MimeUnrender)
 
 data Constraint =
   Constraint
@@ -22,8 +18,6 @@ data Constraint =
     , values :: [String]
     }
   deriving (Eq, Show, Read, Generic)
-
-instance ToJSON Constraint
 
 instance FromJSON Constraint
 
@@ -33,89 +27,56 @@ newtype ConstraintsInfo =
     }
   deriving (Eq, Show, Read, Generic)
 
-instance ToJSON ConstraintsInfo
-
 instance FromJSON ConstraintsInfo
 
---instance MimeUnrender ConstraintsInfo
-
---getConstraintsFromJson :: a -> [Constraint]
---getConstraintsFromJson = undefined
-
-
-
-
--- can you instead parse the constraints-json and create a subtype? e.g.
--- Constraints = PaintingConstraints | ConceptConstraints
--- better?:
--- Constraints = AndConstraint | OrConstraint
--- ... then can pattern match / define particular arities 
-
--- put them in 'mutually exclusive' vs. 'inclusive / can overlap' sets?
- 
+-- TODO: Can you parse the constraints-json and create a subtype?
+-- e.g. Constraints = PaintingConstraints | ConceptConstraints
 isConceptConstraint :: Constraint -> Bool
 isConceptConstraint constraint = column constraint == "name"
 
 isPaintingConstraint :: Constraint -> Bool
 isPaintingConstraint constraint = column constraint `elem` ["school", "timeframe", "type", "author"]
 
-type ParameterizedQuery = (Query, [In [String]])
+namesQuery :: Query
+namesQuery = "select distinct author from paintings"
 
---noConstraintsBase :: String
-noConstraintsBase = "select distinct author, title, date, wga_jpg, type, school, timeframe, concepts from paintings"
+conceptsQuery :: Query
+conceptsQuery = "select distinct name from paintings_concepts"
+
+noConstraintsQuery :: Query
+noConstraintsQuery =
+  "select distinct id, author, title, date, wga_jpg, type, school, timeframe, concepts from paintings"
+
+type ParameterizedQuery = (Query, [In [String]])
 
 base :: [Constraint] -> String
 base cs
   | hasConceptConstraints =
-    "select distinct t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t, paintings_concepts t2 where t.id = t2.painting_id and "
+    "select distinct t.id, t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t, paintings_concepts t2 where t.id = t2.painting_id and "
   | hasPaintingConstraints && not hasConceptConstraints =
-    "select distinct t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t where "
-  | otherwise = noConstraintsBase -- "select distinct author, title, wga_jpg, type, school, timeframe, concepts from paintings"
+    "select distinct t.id, t.author, t.title, t.date, t.wga_jpg, t.type, t.school, t.timeframe, t.concepts from paintings t where "
   where
     hasConceptConstraints = any isConceptConstraint cs
     hasPaintingConstraints = any isPaintingConstraint cs
 
---type Snippet = (String, In [String])
-
---conceptSnippet :: Constraint -> Snippet
---conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
-
---paintingSnippet :: Constraint -> Snippet
---paintingSnippet c = ("t." ++ column c ++ " in ?", In $ values c)
-
+-- TODO: Receive minimum concept certainty from frontend
+minimumConceptCertainty :: String
+minimumConceptCertainty = "0.85"
 
 buildQuery :: [Constraint] -> ParameterizedQuery
-buildQuery cs = (Query $ fromString queryString, queryParams)
+buildQuery cs =
+  if null cs
+    then (noConstraintsQuery, [])
+    else (Query $ fromString queryString, queryParams)
   where
     paintingSnippet c = ("t." ++ column c ++ " in ?", In $ values c)
-    conceptSnippet c = ("t2." ++ column c ++ " in ?", In $ values c)
+    conceptSnippet c = ("t2." ++ column c ++ " in ? and t2.value >= " ++ minimumConceptCertainty, In $ values c)
     allSnippets =
       map
-        (\c -> if isPaintingConstraint c then paintingSnippet c else conceptSnippet c)
+        (\c ->
+           if isPaintingConstraint c
+             then paintingSnippet c
+             else conceptSnippet c)
         cs
     queryString = base cs ++ intercalate " and " (map fst allSnippets)
     queryParams = map snd allSnippets
-
-c1 :: Constraint
-c1 = Constraint "name" ["person", "saint"]
-
-c2 :: Constraint
-c2 = Constraint "school" ["German"]
-
-cs :: [Constraint]
-cs = [c1, c2]
-
---snippets :: [Snippet]
---snippets = [conceptSnippet c1, paintingSnippet c2]
---
---allSnippets :: [Snippet]
---allSnippets = map (\c -> if isPaintingConstraint c then paintingSnippet c else conceptSnippet c) cs
---
---queryString :: String
---queryString = intercalate " and " $ map fst allSnippets
---
---queryParams :: [In [String]]
---queryParams = map snd allSnippets
-sampleQuery :: ParameterizedQuery
-sampleQuery = buildQuery cs
--- :set -XOverloadedStrings
