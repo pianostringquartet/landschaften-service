@@ -182,4 +182,3 @@ instance FromField School where
           Just "Greek"         -> Greek
           Just "Catalan"       -> Catalan
           _                    -> Other
-
