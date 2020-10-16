@@ -1,6 +1,6 @@
 # landschaften-service
 
-#### landschaften-service is a Haskell service backend for [landschaften](https://github.com/pianostringquartet/landschaften), a visual explorer for paintings and their concepts. 
+#### landschaften-service is a Haskell service for [landschaften](https://github.com/pianostringquartet/landschaften), the visual explorer for paintings and their concepts. 
 
 It uses [Stack](https://docs.haskellstack.org/en/stable/README/) for the build tool and [Servant](https://www.servant.dev/) for the server and API.
 
